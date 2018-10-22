@@ -2,13 +2,16 @@
 # -*- coding: utf-8 -*-
 
 """@package deploy_LDM7
-Copyright (C) 2015 University of Virginia. All rights reserved.
+Copyright (C) 2018 University of Virginia. All rights reserved.
 
 file      deploy_LDM7.py
 author    Shawn Chen <sc7cq@virginia.edu>
 version   1.0
 date      Oct. 28, 2015
 
+modifier  Yuanlong Tan <yt4xb@virginia.edu>
+version   2.0
+date      Oct. 22, 2018
 LICENSE
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the Free
@@ -33,9 +36,9 @@ logging.basicConfig()
 paramiko_logger = logging.getLogger("paramiko.transport")
 paramiko_logger.disabled = True
 
-LDM_VER = 'ldm-6.13.2.6'
+LDM_VER = 'ldm-6.13.6'
 LDM_PACK_NAME = LDM_VER + '.tar.gz'
-LDM_PACK_PATH = '~/Workspace/'
+LDM_PACK_PATH = '~/Downloads/'
 TC_RATE = 20 # Mbps
 RTT = 1 # ms
 SINGLE_BDP = TC_RATE * 1000 * RTT / 8 # bytes
@@ -52,7 +55,7 @@ def read_hosts():
     for line in sys.stdin.readlines():
         host = line.strip()
         if host and not host.startswith("#"):
-            host = 'root@' + host
+            host = 'ldm@' + host
             env.hosts.append(host)
 
 def clear_home():
@@ -68,12 +71,31 @@ def upload_pack():
     LDM start script.
     """
     put(LDM_PACK_PATH + LDM_PACK_NAME, '/home/ldm', mode=0664)
-    put('~/Workspace/CC-NIE-Toolbox/generic/misc/util/', '/home/ldm',
+    put('~/Downloads/util/', '/home/ldm',
         mode=0664)
     with cd('/home/ldm'):
         run('chown ldm.ldm %s' % LDM_PACK_NAME)
         run('chmod +x util/run_ldm util/insert.sh util/cpu_mon.sh util/tc_mon.sh')
         run('chown -R ldm.ldm util')
+
+def init_dependecies():
+    """
+    Setting the VM environment.
+    """
+    with settings(sudo_user='ldm'):
+        run('sudo apt-get install -y libxml2-dev', quiet=True)
+	run('sudo apt-get install -y libpng-dev', quiet=True)
+	run('sudo apt-get install -y zlib1g-dev', quiet=True)
+	run('sudo apt-get install -y pax', quiet=True)
+	run('sudo apt-get install -y libyaml-dev', quiet=True)
+	run('sudo apt-get install -y gcc', quiet=True)
+	run('sudo apt-get install -y g++', quiet=True)
+	#run('sudo apt-get install -y sysstat', quiet=True)
+	run('sudo apt-get install -y ntp', quiet=True)
+	run('sudo apt-get install -y autoconf', quiet=True)
+	run('sudo apt-get install -y m4', quiet=True)
+	run('sudo apt-get install -y automake make', quiet=True)
+	run('sudo apt-get install -y gnuplot', quiet=True)
 
 def install_pack():
     """
@@ -81,29 +103,29 @@ def install_pack():
     """
     with settings(sudo_user='ldm'):
         with cd('/home/ldm'):
-            sudo('gunzip -c %s | pax -r \'-s:/:/src/:\'' % LDM_PACK_NAME)
+            run('gunzip -c %s | pax -r \'-s:/:/src/:\'' % LDM_PACK_NAME)
         patch_linkspeed()
         #patch_frcv()
         with cd('/home/ldm/%s/src' % LDM_VER):
-            sudo('make distclean', quiet=True)
-            sudo('find -exec touch \{\} \;', quiet=True)
-            sudo('./configure --with-debug --with-multicast \
-                 --disable-root-actions CFLAGS=-g CXXFLAGS=-g')
-            sudo('make CXXFLAGS="-DDEBUG1" install')
-            run('make root-actions')
+            run('make distclean', quiet=True)
+            #run('find -exec touch \{\} \;', quiet=True)
+            run('./configure --with-debug --with-multicast \
+                 --disable-root-actions CFLAGS=-g CXXFLAGS=-g > Configure.log 2>&1 && echo Configured')
+            run('make install > Install.log 2>&1 && echo Installed')
+            run('sudo make root-actions')
+
 
 def init_config():
     """
     Configures the etc file and environment variables. Also sets up tc and
     routing table on the sender.
     """
-    run('service ntpd start', quiet=True)
-    run('service iptables start', quiet=True)
-    run('yum -y install sysstat', quiet=True)
-    run('sed -i -e \'s/*\/10/*\/1/g\' /etc/cron.d/sysstat', quiet=True)
-    run('rm /var/log/sa/*', quiet=True)
-    run('service crond start', quiet=True)
-    run('service sysstat start', quiet=True)
+    run('sudo service ntp start', quiet=True)
+    #run('service iptables start', quiet=True)
+    run('sudo sed -i -e \'s/*\/10/*\/1/g\' /etc/cron.d/sysstat', quiet=True)
+    run('sudo rm /var/log/sa/*', quiet=True)
+    run('sudo service cron start', quiet=True)
+    run('sudo service sysstat start', quiet=True)
     iface = run('hostname -I | awk \'{print $2}\'')
     if iface == '10.10.1.1':
         config_str = ('MULTICAST ANY 224.0.0.1:38800 1 10.10.1.1\n'
@@ -131,7 +153,7 @@ def init_config():
         sudo('regutil -s 5G /queue/size', user='ldm')
     else:
         config_str = 'RECEIVE ANY 10.10.1.1 ' + iface
-        sudo('regutil -s 2G /queue/size', user='ldm')
+        run('regutil -s 2G /queue/size', user='ldm')
         patch_sysctl()
     fd = StringIO()
     get('/home/ldm/.bashrc', fd)
@@ -140,7 +162,7 @@ def init_config():
         update_bashrc = True
     else:
         update_bashrc = False
-    get('/home/ldm/.bash_profile', fd)
+    get('/home/ldm/.profile', fd)
     content = fd.getvalue()
     if 'export PATH=$PATH:$HOME/util' in content:
         update_profile = True
@@ -152,7 +174,7 @@ def init_config():
             if not update_bashrc:
                 sudo('echo \'ulimit -c "unlimited"\' >> .bashrc')
             if not update_profile:
-                sudo('echo \'export PATH=$PATH:$HOME/util\' >> .bash_profile')
+                sudo('echo \'export PATH=$PATH:$HOME/util\' >> .profile')
         sudo('regutil -s %s /hostname' % iface)
         #sudo('regutil -s 5G /queue/size')
         sudo('regutil -s 35000 /queue/slots')
@@ -162,15 +184,18 @@ def start_LDM():
     Start LDM and writes log file to a specified location.
     """
     with settings(sudo_user='ldm'), cd('/home/ldm'):
-        sudo('ldmadmin mkqueue -f')
-        sudo('ldmadmin start -v')
+	run('ldmadmin delqueue')
+	run('ldmadmin mkqueue -f')
+        run(' ldmadmin start -v')
+	run('ps aux | grep ldm')
 
 def stop_LDM():
     """
     Stops running LDM.
     """
     with settings(sudo_user='ldm'), cd('/home/ldm'):
-        sudo('ldmadmin stop')
+        run('ldmadmin stop')
+	run('ldmadmin clean')
 
 def fetch_log():
     """
@@ -178,14 +203,14 @@ def fetch_log():
     """
     iface = run('hostname -I | awk \'{print $2}\'')
     with cd('/home/ldm/var/logs'):
-        run('mv ldmd_test.log %s.log' % iface)
-    get('/home/ldm/var/logs/%s.log' % iface, '~/Workspace/LDM6-LDM7-LOG/')
+        run('mv ldmd.log %s.log' % iface)
+    get('/home/ldm/var/logs/%s.log' % iface, '~/Workspace/LDM7-LOG')
     if iface == '10.10.1.1':
         with settings(sudo_user='ldm'), cd('/home/ldm'):
-            sudo('sar -n DEV | grep %s > bandwidth.log' % IFACE_NAME)
-            get('cpu_measure.log', '~/Workspace/LDM6-LDM7-LOG/')
-            get('bandwidth.log', '~/Workspace/LDM6-LDM7-LOG/')
-            get('tc_mon.log', '~/Workspace/LDM6-LDM7-LOG/')
+            #run('sudo sar -n DEV | grep %s > bandwidth.log' % IFACE_NAME)
+            get('cpu_measure.log', '~/Workspace/LDM7-LOG/')
+            get('bandwidth.log', '~/Workspace/LDM7-LOG/')
+            get('tc_mon.log', '~/Workspace/LDM7-LOG/')
 
 def patch_linkspeed():
     """
@@ -228,7 +253,9 @@ def rm_loss():
         --probability %s -p udp -j DROP' % (IFACE_NAME, str(LOSS_RATE)))
 
 def deploy():
-    clear_home()
-    upload_pack()
-    install_pack()
-    init_config()
+	clear_home()
+	upload_pack()
+	init_dependecies()
+	install_pack()
+	init_config()
+	#start_LDM()

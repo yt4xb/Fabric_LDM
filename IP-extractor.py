@@ -2,13 +2,16 @@
 # -*- coding: utf-8 -*-
 
 """@package IP-extractor
-Copyright (C) 2015 University of Virginia. All rights reserved.
+Copyright (C) 2018 University of Virginia. All rights reserved.
 
 file      IP-extractor.py
 author    Shawn Chen <sc7cq@virginia.edu>
 version   1.0
 date      August 23, 2015
 
+modifier  Yuanlong Tan <yt4xb@virginia.edu>
+version   2.0
+date      April 15, 2018
 LICENSE
 
 This program is free software; you can redistribute it and/or modify it
@@ -28,7 +31,6 @@ brief     Parses the RSpec and extracts control plane IP addresses.
 import re
 import sys
 targetIP = []
-
 def parseIP(line):
     """Parses the input xml file and finds the control plane IP.
 
@@ -60,7 +62,7 @@ def main(response):
                 targetIP.append(ip)
                 print ip
     xmlfile.close()
-    with open("domain.log", 'w') as dn:
+    with open(sys.argv[1]+".list", 'w') as dn:
         for i in targetIP:
             dn.write(i)
             dn.write('\n')
