@@ -1,19 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""@package IP-extractor
+
+"""
 Copyright (C) 2018 University of Virginia. All rights reserved.
 
-file      IP-extractor.py
-author    Shawn Chen <sc7cq@virginia.edu>
-version   1.0
-date      August 23, 2015
-
+file      IP_Ex.py
 modifier  Yuanlong Tan <yt4xb@virginia.edu>
-version   2.0
-date      April 15, 2018
+version   1.0
+date      Oct. 1, 2018
 LICENSE
-
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the Free
 Software Foundation; either version 2 of the License, or（at your option）
@@ -24,9 +20,8 @@ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
 more details at http://www.gnu.org/copyleft/gpl.html
 
-brief     Parses the GENI RSpec and extracts control plane IP addresses.
+brief     Parses the Cloudlab RSpec and extracts control plane IP addresses.
 """
-
 
 import re
 import sys
@@ -41,11 +36,10 @@ def parseIP(line):
         ip:     The IP address found.
         -1:     Indicates invalid IP or none found.
     """
-    match = re.search(r'hostname=\"(.*)\" port=\"(\d+)\" username=\"yt4xb\"', line)
+    match = re.search(r'ipv4=\"(.*)\"', line)
     if match:
         name = match.group(1)
-        port = match.group(2)
-        return name+":"+port
+        return name
     else:
         return -1
 
