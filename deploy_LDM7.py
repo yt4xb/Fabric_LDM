@@ -55,14 +55,14 @@ def read_hosts():
     for line in sys.stdin.readlines():
         host = line.strip()
         if host and not host.startswith("#"):
-            host = 'ldm@' + host
+            host = 'root@' + host
             env.hosts.append(host)
 
 def clear_home():
     """
     Clears the ldm user home directory, including the existing product queue.
     """
-    with cd('/home/ldm'):
+    with cd('/home/yt4xb'):
         run('rm -rf *')
 
 def upload_pack():
@@ -70,19 +70,19 @@ def upload_pack():
     Uploads the LDM source code package onto the test node. Also uploads a
     LDM start script.
     """
-    put(LDM_PACK_PATH + LDM_PACK_NAME, '/home/ldm', mode=0664)
-    put('~/Downloads/util/', '/home/ldm',
+    put(LDM_PACK_PATH + LDM_PACK_NAME, '/home/yt4xb', mode=0664)
+    put('~/Downloads/util/', '/home/yt4xb',
         mode=0664)
-    with cd('/home/ldm'):
-        run('chown ldm.ldm %s' % LDM_PACK_NAME)
+    with cd('/home/yt4xb'):
+        #run('chown ldm.ldm %s' % LDM_PACK_NAME)
         run('chmod +x util/run_ldm util/insert.sh util/cpu_mon.sh util/tc_mon.sh')
-        run('chown -R ldm.ldm util')
+        #run('chown -R ldm.ldm util')
 
 def init_dependecies():
     """
     Setting the VM environment.
     """
-    with settings(sudo_user='ldm'):
+    with settings(sudo_user='yt4xb'):
         run('sudo apt-get install -y libxml2-dev', quiet=True)
 	run('sudo apt-get install -y libpng-dev', quiet=True)
 	run('sudo apt-get install -y zlib1g-dev', quiet=True)
@@ -101,12 +101,12 @@ def install_pack():
     """
     Compiles and installs the LDM source code.
     """
-    with settings(sudo_user='ldm'):
-        with cd('/home/ldm'):
+    with settings(sudo_user='yt4xb'):
+        with cd('/home/yt4xb'):
             run('gunzip -c %s | pax -r \'-s:/:/src/:\'' % LDM_PACK_NAME)
         patch_linkspeed()
         #patch_frcv()
-        with cd('/home/ldm/%s/src' % LDM_VER):
+        with cd('/home/yt4xb/%s/src' % LDM_VER):
             run('make distclean', quiet=True)
             #run('find -exec touch \{\} \;', quiet=True)
             run('./configure --with-debug --with-multicast \
@@ -146,7 +146,7 @@ def init_config():
             ip dst 224.0.0.1/32 flowid 1:1' % IFACE_NAME, quiet=True)
         run('tc filter add dev %s protocol ip parent 1:0 prio 1 u32 match \
             ip dst 0/0 flowid 1:2' % IFACE_NAME, quiet=True)
-        with cd('/home/ldm'):
+        with cd('/home/yt4xb'):
             sudo('git clone \
                  https://github.com/shawnsschen/LDM6-LDM7-comparison.git',
                  user='ldm', quiet=True)
@@ -156,20 +156,20 @@ def init_config():
         run('regutil -s 2G /queue/size', user='ldm')
         patch_sysctl()
     fd = StringIO()
-    get('/home/ldm/.bashrc', fd)
+    get('/home/yt4xb/.bashrc', fd)
     content = fd.getvalue()
     if 'ulimit -c "unlimited"' in content:
         update_bashrc = True
     else:
         update_bashrc = False
-    get('/home/ldm/.profile', fd)
+    get('/home/yt4xb/.profile', fd)
     content = fd.getvalue()
     if 'export PATH=$PATH:$HOME/util' in content:
         update_profile = True
     else:
         update_profile = False
-    with settings(sudo_user='ldm'):
-        with cd('/home/ldm'):
+    with settings(sudo_user='yt4xb'):
+        with cd('/home/yt4xb'):
             sudo('echo \'%s\' > etc/ldmd.conf' % config_str)
             if not update_bashrc:
                 sudo('echo \'ulimit -c "unlimited"\' >> .bashrc')
@@ -183,7 +183,7 @@ def start_LDM():
     """
     Start LDM and writes log file to a specified location.
     """
-    with settings(sudo_user='ldm'), cd('/home/ldm'):
+    with settings(sudo_user='ldm'), cd('/home/yt4xb'):
 	run('ldmadmin delqueue')
 	run('ldmadmin mkqueue -f')
         run(' ldmadmin start -v')
@@ -193,7 +193,7 @@ def stop_LDM():
     """
     Stops running LDM.
     """
-    with settings(sudo_user='ldm'), cd('/home/ldm'):
+    with settings(sudo_user='ldm'), cd('/home/yt4xb'):
         run('ldmadmin stop')
 	run('ldmadmin clean')
 
@@ -202,11 +202,11 @@ def fetch_log():
     Fetches the LDM log.
     """
     iface = run('hostname -I | awk \'{print $2}\'')
-    with cd('/home/ldm/var/logs'):
+    with cd('/home/yt4xb/var/logs'):
         run('mv ldmd.log %s.log' % iface)
-    get('/home/ldm/var/logs/%s.log' % iface, '~/Workspace/LDM7-LOG')
+    get('/home/yt4xb/var/logs/%s.log' % iface, '~/Workspace/LDM7-LOG')
     if iface == '10.10.1.1':
-        with settings(sudo_user='ldm'), cd('/home/ldm'):
+        with settings(sudo_user='yt4xb'), cd('/home/yt4xb'):
             #run('sudo sar -n DEV | grep %s > bandwidth.log' % IFACE_NAME)
             get('cpu_measure.log', '~/Workspace/LDM7-LOG/')
             get('bandwidth.log', '~/Workspace/LDM7-LOG/')
@@ -216,8 +216,8 @@ def patch_linkspeed():
     """
     Patches the receiving side linkspeed.
     """
-    with settings(sudo_user='ldm'), cd(
-        '/home/ldm/%s/src/mcast_lib/vcmtp/VCMTPv3/receiver' % LDM_VER):
+    with settings(sudo_user='yt4xb'), cd(
+        '/home/yt4xb/%s/src/mcast_lib/vcmtp/VCMTPv3/receiver' % LDM_VER):
         sudo('sed -i -e \'s/linkspeed(20000000)/linkspeed(%s)/g\' \
              vcmtpRecvv3.cpp' % str(TC_RATE*1000*1000), quiet=True)
 
@@ -225,8 +225,8 @@ def patch_frcv():
     """
     Patches the frcv value.
     """
-    with settings(sudo_user='ldm'), cd(
-        '/home/ldm/%s/src/mcast_lib/vcmtp/VCMTPv3/receiver' % LDM_VER):
+    with settings(sudo_user='yt4xb'), cd(
+        '/home/yt4xb/%s/src/mcast_lib/vcmtp/VCMTPv3/receiver' % LDM_VER):
         sudo('sed -i -e \'s/Frcv 20/Frcv 5/g\' vcmtpRecvv3.cpp', quiet=True)
 
 def patch_sysctl():
@@ -257,5 +257,5 @@ def deploy():
 	upload_pack()
 	init_dependecies()
 	install_pack()
-	init_config()
+	#init_config()
 	#start_LDM()
