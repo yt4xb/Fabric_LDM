@@ -42,7 +42,7 @@ LDM_PACK_PATH = '~/Downloads/'
 TC_RATE = 20 # Mbps
 RTT = 1 # ms
 SINGLE_BDP = TC_RATE * 1000 * RTT / 8 # bytes
-RCV_NUM = 2 # number of receivers
+RCV_NUM = 8 # number of receivers
 LOSS_RATE = 0.01
 IFACE_NAME = 'eth1'
 
@@ -90,7 +90,7 @@ def init_dependecies():
 	run('sudo apt-get install -y libyaml-dev', quiet=True)
 	run('sudo apt-get install -y gcc', quiet=True)
 	run('sudo apt-get install -y g++', quiet=True)
-	#run('sudo apt-get install -y sysstat', quiet=True)
+	run('sudo apt-get install -y sysstat', quiet=True)
 	run('sudo apt-get install -y ntp', quiet=True)
 	run('sudo apt-get install -y autoconf', quiet=True)
 	run('sudo apt-get install -y m4', quiet=True)
@@ -104,7 +104,7 @@ def install_pack():
     with settings(sudo_user='yt4xb'):
         with cd('/home/yt4xb'):
             run('gunzip -c %s | pax -r \'-s:/:/src/:\'' % LDM_PACK_NAME)
-        patch_linkspeed()
+        #patch_linkspeed()
         #patch_frcv()
         with cd('/home/yt4xb/%s/src' % LDM_VER):
             run('make distclean', quiet=True)
@@ -149,11 +149,11 @@ def init_config():
         with cd('/home/yt4xb'):
             sudo('git clone \
                  https://github.com/shawnsschen/LDM6-LDM7-comparison.git',
-                 user='ldm', quiet=True)
-        sudo('regutil -s 5G /queue/size', user='ldm')
+                 user='yt4xb', quiet=True)
+        sudo('regutil -s 5G /queue/size', user='yt4xb')
     else:
         config_str = 'RECEIVE ANY 10.10.1.1 ' + iface
-        run('regutil -s 2G /queue/size', user='ldm')
+        run('regutil -s 2G /queue/size', user='yt4xb')
         patch_sysctl()
     fd = StringIO()
     get('/home/yt4xb/.bashrc', fd)
@@ -183,7 +183,7 @@ def start_LDM():
     """
     Start LDM and writes log file to a specified location.
     """
-    with settings(sudo_user='ldm'), cd('/home/yt4xb'):
+    with settings(sudo_user='yt4xb'), cd('/home/yt4xb'):
 	run('ldmadmin delqueue')
 	run('ldmadmin mkqueue -f')
         run(' ldmadmin start -v')
@@ -193,7 +193,7 @@ def stop_LDM():
     """
     Stops running LDM.
     """
-    with settings(sudo_user='ldm'), cd('/home/yt4xb'):
+    with settings(sudo_user='yt4xb'), cd('/home/yt4xb'):
         run('ldmadmin stop')
 	run('ldmadmin clean')
 
@@ -209,7 +209,7 @@ def fetch_log():
         with settings(sudo_user='yt4xb'), cd('/home/yt4xb'):
             #run('sudo sar -n DEV | grep %s > bandwidth.log' % IFACE_NAME)
             get('cpu_measure.log', '~/Workspace/LDM7-LOG/')
-            get('bandwidth.log', '~/Workspace/LDM7-LOG/')
+            #get('bandwidth.log', '~/Workspace/LDM7-LOG/')
             get('tc_mon.log', '~/Workspace/LDM7-LOG/')
 
 def patch_linkspeed():

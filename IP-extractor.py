@@ -41,10 +41,13 @@ def parseIP(line):
         ip:     The IP address found.
         -1:     Indicates invalid IP or none found.
     """
-    match = re.search(r'hostname=\"(.*)\" port=\"(\d+)\" username=\"yt4xb\"', line)
+    match = re.search(r'hostname=\"(.*)\" port=\"(\d+)\" username=\"yt4xb\"/', line)
     if match:
         name = match.group(1)
         port = match.group(2)
+	print name
+	print '\n'
+	print port
         return name+":"+port
     else:
         return -1
@@ -60,7 +63,6 @@ def main(response):
             ip = parseIP(line)
             if ip != -1:
                 targetIP.append(ip)
-                print ip
     xmlfile.close()
     with open(sys.argv[1]+".list", 'w') as dn:
         for i in targetIP:
